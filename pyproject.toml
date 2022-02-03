@@ -1,8 +1,15 @@
 [tool.poetry]
 name = "aiowire"
-version = "0.1.0"
-description = ""
+version = "1.0.0"
+description = "A simple event loop using asyncio"
 authors = ["David M. Rogers <predictivestatmech@gmail.com>"]
+readme = "README.rst"
+repository = "https://github.com/frobnitzem/aiowire"
+license = "LGPL-3.0-or-later"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO"
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"

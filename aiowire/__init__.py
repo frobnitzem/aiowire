@@ -1,3 +1,7 @@
-__version__ = '0.1.0'
+import importlib.metadata
 
-from .event_loop import EventLoop, FDPoller
+__version__ = importlib.metadata.version("aiowire")
+
+from .event_loop import EventLoop
+from .poller import Poller
+from .wire import Wire, Call, Repeat
