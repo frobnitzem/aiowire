@@ -97,3 +97,9 @@ Consider, for example, printing 4 alarms separated by some time interval::
     async with EventLoop() as ev:
         ev.start(prog)
 
+References
+==========
+
+* https://pyzmq.readthedocs.io/en/latest/api/zmq.html#poller
+* https://pythontic.com/modules/select/poll
+* https://blog.tomecek.net/post/non-blocking-stdin-in-python/
