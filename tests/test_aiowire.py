@@ -64,7 +64,7 @@ async def test_Poller():
         os.write(wfd, b"8 chars\n")
 
     async with EventLoop(timeout=0.5) as event:
-        event.start(poller.poll)
+        event.start(poller)
         event.start(CountDown("tick", 0.1, 100))
         event.start(run_cmd)
         event.start(CountDown("done", 0.475, 1))

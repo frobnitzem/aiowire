@@ -3,7 +3,9 @@ from typing import Optional, Dict, Any
 import zmq
 import zmq.asyncio 
 
-class Poller:
+from .wire import Wire
+
+class Poller(Wire):
     """
     File descriptor poller.  When a file it's watching
     gets input, it starts the corresponding callback (Wire).
@@ -54,7 +56,7 @@ class Poller:
         """
         self.done = True
     
-    async def poll(self, ev):
+    async def __call__(self, ev):
         # TODO: we could further capture the coroutine
         # here within self, then cancel it
         # during shutdown -- then await would probably throw something.
@@ -66,3 +68,4 @@ class Poller:
             cb = self.socks.get(fd, None)
             if cb is not None:
                 ev.start(cb)
+        return self

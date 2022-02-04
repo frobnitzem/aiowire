@@ -29,9 +29,7 @@ class Wire:
     def __mul__(a, n : int):
         return Repeat(a, n)
     async def __call__(self, ev): # -> Optional[Wire]:
-        ret = await self.a(ev)
-        if ret is not None:
-            ev.start(ret)
+        ev.start( await self.a(ev) )
         if self.b is not None:
             return await self.b(ev)
         return None
@@ -58,10 +56,15 @@ class Repeat(Wire):
         self.n = n
 
     async def __call__(self, ev):
-        ret = await self.a(ev)
-        if ret is not None:
-            ev.start(ret)
+        ev.start( await self.a(ev) )
         self.n -= 1
         if self.n <= 0:
             return None
+        return self
+
+class Forever(Wire):
+    def __init__(self, a):
+        self.a = a
+    async def __call__(self, ev):
+        ev.start( await self.a(ev) )
         return self

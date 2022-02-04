@@ -57,7 +57,7 @@ The canonical task types are thus::
     asyncio.sleep # awake the loop after a given time lapse
 
     zmq.asyncio.Poller.poll # awake the loop after I/O on socket/file
-    # Note: see aiowire.Poller for a nice interface.
+    # Note: see aiowire.Poller for a Wire-y interface.
 
 Now your sockets can launch programs, and your program
 results can start/stop sockets, and everyone can start
@@ -70,6 +70,22 @@ Poller?
 The ``Poller`` class lets you schedule callbacks in response
 to socket or file-descriptor activity.  Of course, the callbacks
 are wires, and run concurrently.
+
+Poller is also a Wire, created as,
+`Poller(dictionary mapping sockets / fd-s to callback wires)`.
+
+You add it to your event loop as usual::
+
+    # ... create sock from zmq.asyncio.Context
+
+    async def echo(ev):
+        await sock.send( await sock.recv() )
+
+    todo = { 0:  Call(print, "received input on sys.stdin"),
+             sock: echo
+           }
+    async with EventLoop() as ev:
+        ev.start( Poller(todo) )
 
 
 Tell me more
@@ -84,9 +100,10 @@ To take it to the next level, aiowire comes with a
 The following class extensions help you make Wire-s out of common 
 programming idioms:
 
-* Wire(w): acts like an identity over "async func(ev):" functions
-* Repeat(w, n): repeat wire ``w`` n times in a row
-* Call(fn): call fn, ignore the return, and exit
+* `Wire(w)`: acts like an identity over "async func(ev):" functions
+* `Repeat(w, n)`: repeat wire ``w`` n times in a row
+* `Forever(w)`: repeat forever -- like `Repeat(w) * infinity`
+* `Call(fn, *args)`: call fn (normal or async), ignore the return, and exit
 
 Consider, for example, printing 4 alarms separated by some time interval::
 
