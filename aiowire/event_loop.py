@@ -1,4 +1,4 @@
-from typing import Optional, Callable, Awaitable
+from typing import Optional, Callable, Awaitable, List, Any
 from inspect import isawaitable
 import asyncio
 
@@ -31,14 +31,18 @@ class EventLoop:
         self.tasks = set()
         self.timeout = timeout
 
-    def start(self, fn) -> None:
+    def start(self, ret) -> List[Any]:
+        if ret is None:
+            return []
+        fn, args = get_args(ret)
         if fn is None:
-            return None
-        coro = fn(self)
+            return args
+        coro = fn(self, *args)
         if isawaitable(coro):
-            t = asyncio.ensure_future(coro)
-            #t = asyncio.create_task(coro)
+            #t = asyncio.ensure_future(coro)
+            t = asyncio.create_task(coro)
             self.tasks.add(t)
+        return args
 
     async def run(self, timeout = None) -> None:
         """
@@ -81,4 +85,20 @@ class EventLoop:
         for t in self.tasks: #[max(self.cur-1,0):]:
             if not t.done():
                 t.cancel()
+        self.tasks = set()
         return False # continue to raise any exception
+
+def get_args(ret):
+    """
+    Interpret mutiple different potential return types from a Wire.
+
+    - Callable   ~> call ret(ev)
+    - List/Tuple ~> call ret[0](ev, *ret[1])
+    """
+    if isinstance(ret, Callable):
+        return ret, []
+    if len(ret) == 2 and ret[1] is None:
+        return ret[0], []
+    assert len(ret) == 2 and isinstance(ret[1], (list,tuple)), \
+           "Invalid Wire return type: should be either `None`, `Wire`, or `(Wire, [])`"
+    return ret[0], ret[1]
