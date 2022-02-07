@@ -29,7 +29,7 @@ class Wire:
     def __init__(self, a):
         self._aiowire = a
     def __rshift__(a, b): # >>
-        return Sequence(a, b)
+        return Sequence(a, b, repeatArgs=False)
     def __ge__(a, b): # >=
         return ApplyM(a, b)
     def __mul__(a, n : int):
@@ -40,27 +40,29 @@ class Wire:
 class Sequence(Wire):
     """
     This Wire codifies the pattern, "call a, then b".
-    It prevents us from having to write it for each kind of wire.
-    Instead, we just create a Sequence wire.
 
-    Any return value from `a` is ignored, so `b` is always
-    called as b(ev).
+    Any return value from `a` is ignored.
+
+    In default mode, `b` is always called as `b(ev)`.
+    When `repeatArgs` is `True`, then b is always called as `b(ev, *args)`,
+    with the same args passed to `a`.
 
     Note:
 
     If `a` returns a tuple with a wire and a result, `(w, x)`,
-    then both w(ev, *x) and b(ev, *x) will be run concurrently.
+    then both w(ev, *x) and b(ev) / b(ev, *args) will be run concurrently.
     """
-    def __init__(self, a, b):
+    def __init__(self, a, b, repeatArgs=False):
         self.a = a
         self.b = b
+        self.repeatArgs = repeatArgs
     async def __call__(self, ev, *args):
         ret = await self.a(ev, *args)
         if ret is not None:
-            args = ev.start( ret )
-        else:
-            args = []
-        return self.b, args
+            ev.start( ret )
+        if self.repeatArgs:
+            return self.b, args
+        return self.b
 
 class ApplyM(Wire):
     """
@@ -85,7 +87,7 @@ class ApplyM(Wire):
     This kind of wire can lead to difficult-to-diagnose errors.
     If `a` returns something other than
        None | Callable | (Callable, List),
-    then get_args will throw an error, and you'll have to find
+    then `get_args` will throw an error, and you'll have to find
     the wire `a` and fix its return type.
     """
     def __init__(self, a, b):
@@ -126,6 +128,8 @@ class Call(Wire):
         ret = self.fn(*self.args, **self.kwargs)
         if isawaitable(ret):
             ret = await ret
+        # Ensure that the return value is compatible with
+        # wire's expected (Optional[Callable], List) format.
         if ret is None:
             return None
         if not isinstance(ret, (list,tuple)):
@@ -140,11 +144,30 @@ class Repeat(Wire):
     async def __call__(self, ev, *args):
         self.n -= 1
         if self.n >= 0:
+            M = Sequence(self.a, self, repeatArgs=True)
+            return await M(ev, *args)
+        return None, args
+
+class RepeatM(Wire):
+    def __init__(self, a, n : int):
+        self.a = a
+        self.n = n
+
+    async def __call__(self, ev, *args):
+        self.n -= 1
+        if self.n >= 0:
             M = ApplyM(self.a, self)
-            return await M(ev, args)
+            return await M(ev, *args)
         return None, args
 
 class Forever(Wire):
+    def __init__(self, a):
+        self.a = a
+    async def __call__(self, ev, *args):
+        M = Sequence(self.a, self, repeatArgs=True)
+        return await M(ev, *args)
+
+class ForeverM(Wire):
     def __init__(self, a):
         self.a = a
     async def __call__(self, ev, *args):

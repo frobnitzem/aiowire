@@ -1,5 +1,23 @@
 # ChangeLog
 
+## [2.1.0] - 2022-02-07
+
+### Changed
+
+- `Repeat` and `Forever` no longer use `ApplyM` internally.
+  This was non-intuitive, and overall decreased usability.
+  Now `Repeat` and `Forever` always send the same arguments (if any)
+  to their enclosed `Wire`.
+
+- `RepeatM` and `ForeverM` perform wire repetition with
+  argument passing.
+
+### Fixed
+
+- `Repeat` called its embedded function with incorrect arguments.
+  This has been fixed.
+
+
 ## [2.0.0] - 2022-02-06
 
 This release adds a killer feature -- wires can return
@@ -46,5 +64,6 @@ into `wire2`'s call.  For example, if `wire1` returns
 
 - Fixed ZMQ dependency name to `pyzmq`.
 
+[2.1.0]: https://github.com/frobnitzem/aiowire/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/frobnitzem/aiowire/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/frobnitzem/aiowire/compare/v1.0.0...v1.0.1

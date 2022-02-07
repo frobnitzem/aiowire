@@ -3,7 +3,8 @@ import asyncio
 import datetime
 
 from aiowire import __version__
-from aiowire import EventLoop, Poller, Wire, Call, Forever
+from aiowire import EventLoop, Poller, Wire, Call
+from aiowire import Repeat, RepeatM, Forever, ForeverM
 
 # Wires with strange return values.
 async def return_three(ev, x):
@@ -84,4 +85,40 @@ async def test_return_launch():
         return launcher, arg + (arg1,)
 
     async with EventLoop(timeout=0.02) as event:
-        event.start( (Forever(return_launcher), [arg0]) )
+        event.start( (ForeverM(return_launcher), [arg0]) )
+
+async def aparrot(*args):
+    return args
+def parrot(*args):
+    return args
+async def callee(eve, *args):
+    assert args == (1,2)
+    await asyncio.sleep(0.01)
+    return None, (3,)
+
+async def callee2(eve, *args):
+    assert args == (1,2) or args == (3,)
+    await asyncio.sleep(0.01)
+    return None, (3,)
+
+@pytest.mark.asyncio
+async def test_repeat_call():
+    async with EventLoop(timeout=0.2) as eve:
+        eve.start( Call(parrot,  1, 2) >= Repeat(callee, 2) )
+        eve.start( Call(aparrot, 1, 2) >= Repeat(callee, 3) )
+
+@pytest.mark.asyncio
+async def test_forever_call():
+    async with EventLoop(timeout=0.2) as eve:
+        eve.start( Call(aparrot, 1, 2) >= Forever(callee) )
+
+@pytest.mark.asyncio
+async def test_repeatM_call():
+    async with EventLoop(timeout=0.2) as eve:
+        eve.start( Call(parrot,  1, 2) >= RepeatM(callee2, 20) )
+        eve.start( Call(aparrot, 1, 2) >= RepeatM(callee2, 4) )
+
+@pytest.mark.asyncio
+async def test_foreverM_call():
+    async with EventLoop(timeout=0.2) as eve:
+        eve.start( Call(aparrot, 1, 2) >= ForeverM(callee2) )
