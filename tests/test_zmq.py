@@ -67,6 +67,8 @@ class Server:
                             self.control : self.admin,
                             self.sock : self.handle_req
                         })
+        with pytest.raises(IndexError) as e:
+            self.poller.register(self.sock, self.admin)
         return self.poller
 
 async def server(ev):

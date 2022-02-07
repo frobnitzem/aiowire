@@ -41,7 +41,8 @@ class Poller(Wire):
         """
         if flags is None:
             flags = self.default_flags
-        assert sock not in self.socks, f"Already have a callback for {sock}"
+        if sock in self.socks:
+            raise IndexError(f"Already have a callback for sock: {sock}")
         self.poller.register(sock, flags)
         self.socks[sock] = cb
 

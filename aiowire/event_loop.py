@@ -1,4 +1,4 @@
-from typing import Optional, Callable, Awaitable, List, Any
+from typing import Optional, Callable, Union, Awaitable, List, Any, Tuple
 from inspect import isawaitable
 import asyncio
 
@@ -88,7 +88,8 @@ class EventLoop:
         self.tasks = set()
         return False # continue to raise any exception
 
-def get_args(ret):
+def get_args( ret : Union[Callable, Tuple[Optional[Callable], List]] ) \
+                -> (Optional[Callable], List):
     """
     Interpret mutiple different potential return types from a Wire.
 
@@ -97,8 +98,8 @@ def get_args(ret):
     """
     if isinstance(ret, Callable):
         return ret, []
-    if len(ret) == 2 and ret[1] is None:
-        return ret[0], []
-    assert len(ret) == 2 and isinstance(ret[1], (list,tuple)), \
-           "Invalid Wire return type: should be either `None`, `Wire`, or `(Wire, [])`"
+    if len(ret) != 2 or not (ret[0] is None \
+                             or isinstance(ret[0], Callable)) \
+                     or not isinstance(ret[1], (list,tuple)):
+        raise ValueError("Invalid Wire return type: should be either `None`, `Wire`, or `(Wire, List)`")
     return ret[0], ret[1]

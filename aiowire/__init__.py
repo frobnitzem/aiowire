@@ -4,4 +4,4 @@ __version__ = importlib.metadata.version("aiowire")
 
 from .event_loop import EventLoop
 from .poller import Poller
-from .wire import Wire, ApplyM, Call, Repeat, Forever
+from .wire import Wire, Sequence, ApplyM, Call, Repeat, Forever
