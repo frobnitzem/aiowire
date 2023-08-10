@@ -8,25 +8,24 @@ It is based on the principles of functional
 reactive programming and draws inspiration
 from Haskell's `Control.Wire <https://hackage.haskell.org/package/netwire-4.0.7/docs/Control-Wire.html>`_ library.
 
-In particular, every co-routine started by the
-event loop is a ``Wire``.
+In particular, every co-routine started by the event loop is a ``Wire``.
 
-``Wire``-s either return ``None``, indicating they're done,
-or another ``Wire``.
+``Wire``-s either return ``None``, indicating they're done, or another
+``Wire``.
 
 An example helps explain the idea::
 
     from aiowire import EventLoop
 
     event = 0
-    async def show_event(ev) \
-            -> Optional[Callable[[EventLoop],Awaitable]]:
+    async def show_event(ev) -> Optional[Wire]:
         print("Running...")
         event += 1
         await asyncio.sleep(event*0.15)
         print(f"Event {event}")
         if event < 5:
-            return show_event
+            return Wire(show_event)
+        return None
 
     async with EventLoop(timeout=1) as event:
         event.start(show_event)
@@ -37,7 +36,7 @@ We start up an event loop and drop in two wires.
 Each runs, then returns the ``show_event`` function.
 The event loop runs those functions next... and so on.
 
-But this isn't functional programming.  The wires
+But since this isn't functional programming.  The wires
 have access to the event loop, and can start more
 tasks.  Easy, right?
 
@@ -50,16 +49,46 @@ working with sockets, and managing timeouts?  Drop
 in one wire for each program, one polling on socket I/O,
 and another acting as a timer (as above).
 
-The canonical task types are thus::
+Some canonical task types that do these include::
 
-    asyncio.create_subprocess_exec # run a process
+    asyncio.create_subprocess_exec # run a program
 
     asyncio.sleep # awake the loop after a given time lapse
 
     zmq.asyncio.Poller.poll # awake the loop after I/O on socket/file
-    # Note: see aiowire.Poller for a Wire-y interface.
 
-Now your sockets can launch programs, and your program
+    aiowire.Poller # Wire-y interface to zmq.asyncio.Poller
+
+
+Think about each wire as a finite state machine.
+For example,
+
+.. mermaid::
+
+    flowchart LR
+        R[Ready] --> N{New Task?};
+        N -- Yes --> W[Working];
+        W --> C{Complete?};
+        C -- Yes --> R;
+
+can be implemented like so::
+
+    async def ready(ev : EventLoop, info : X) -> Optional[Wire]:
+        if info.new_task():
+            do_working_action()
+            return Wire(working, info) # move to working state
+
+        # Return a sequence of 2 wires:
+        return Call(asyncio.sleep, 1.0) >> Wire(ready, info)
+
+    async def working(ev : EventLoop, info : X) -> Wire:
+        if info.complete():
+            do_complete_action()
+            return Wire(ready, info)
+        await asyncio.sleep(0.5) # directly sleep a bit
+        return Wire(working, info)
+
+Note how your sockets can launch programs, and your program
 results can start/stop sockets, and everyone can start
 background tasks.
 
@@ -82,7 +111,7 @@ You add it to your event loop as usual::
         await sock.send( await sock.recv() )
 
     todo = { 0:  Call(print, "received input on sys.stdin"),
-             sock: echo
+             sock: Wire(echo)
            }
     async with EventLoop() as ev:
         ev.start( Poller(todo) )
@@ -103,7 +132,8 @@ programming idioms:
 * `Wire(w)`: acts like an identity over "async func(ev):" functions
 * `Repeat(w, n)`: repeat wire ``w`` n times in a row
 * `Forever(w)`: repeat forever -- like `Repeat(w) * infinity`
-* `Call(fn, *args)`: call fn (normal or async), ignore the return, and exit
+* `Call(fn, *args, **kargs)`: call fn (normal or async),
+  ignore the return, and exit
 
 Consider, for example, printing 4 alarms separated by some time interval::
 

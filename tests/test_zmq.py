@@ -114,6 +114,3 @@ async def test_run():
         ev.start( C )
     assert C.nok > 1
     assert C.nshut > 1
-
-if __name__=="__main__":
-    asyncio.run( run() )

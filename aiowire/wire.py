@@ -1,13 +1,16 @@
+from typing import Optional
 from inspect import isawaitable
 
 class Wire:
     """
     Convenience wrapper for a ``Wire`` type.
 
-    You don't have to use this type, any async function
+    Technically you don't have to use this type, any async function
     taking a single argument (the EventLoop) works as a wire.
+    Practically, type-checking works better if you cast it to
+    a Wire.
 
-    This wrapper just provides nice syntax for composition-in-time::
+    This wrapper also provides nice syntax for composition-in-time::
 
         a >> b (a triggers b)
 
@@ -26,150 +29,70 @@ class Wire:
           IF the extension implements either __init__ or __call__,
           then it MUST implement both __init__ and __call__.
     """
-    def __init__(self, a):
+    def __init__(self, a, *args, **kwargs):
         self._aiowire = a
+        self.args   = args
+        self.kwargs = kwargs
     def __rshift__(a, b): # >>
-        return Sequence(a, b, repeatArgs=False)
-    def __ge__(a, b): # >=
-        return ApplyM(a, b)
+        return Sequence(a, b)
     def __mul__(a, n : int):
         return Repeat(a, n)
-    async def __call__(self, ev, *args): # -> Optional[Wire]:
-        return await self._aiowire(ev, *args)
+    async def __call__(self, ev) -> Optional['Wire']:
+        ret = self._aiowire(ev, *self.args, **self.kwargs)
+        if isawaitable(ret):
+            ret = await ret
+        return ret
 
 class Sequence(Wire):
     """
     This Wire codifies the pattern, "call a, then b".
 
-    Any return value from `a` is ignored.
-
-    In default mode, `b` is always called as `b(ev)`.
-    When `repeatArgs` is `True`, then b is always called as `b(ev, *args)`,
-    with the same args passed to `a`.
-
-    Note:
-
-    If `a` returns a tuple with a wire and a result, `(w, x)`,
-    then both w(ev, *x) and b(ev) / b(ev, *args) will be run concurrently.
-    """
-    def __init__(self, a, b, repeatArgs=False):
-        self.a = a
-        self.b = b
-        self.repeatArgs = repeatArgs
-    async def __call__(self, ev, *args):
-        ret = await self.a(ev, *args)
-        if ret is not None:
-            ev.start( ret )
-        if self.repeatArgs:
-            return self.b, args
-        return self.b
-
-class ApplyM(Wire):
-    """
-    This Wire codifies the pattern, "call a(ev), then b(ev, *ret)",
-    where ret are the extra return values from a.
-
-    It prevents us from having to write it for each kind of wire.
-    Instead, we just create an ApplyM wire.
-
-    Any return values from `a` are passed as
-    function inputs to `b`.  For example, if a = Call(fn, x, y),
-    and fn(x, y) returns ret, then `a` will return (None, ret),
-    and `b` will be called as b(ev, *ret).
-
-    Note:
-
-    If `a` returns a tuple with a wire and a result, `(w, x)`,
-    then both w(ev, *x) and b(ev, *x) will be run concurrently.
-
-    Error-note:
-
-    This kind of wire can lead to difficult-to-diagnose errors.
-    If `a` returns something other than
-       None | Callable | (Callable, List),
-    then `get_args` will throw an error, and you'll have to find
-    the wire `a` and fix its return type.
+    If a returns None, then b is run.
+    If a returns another Wire, c, then both c *and* b are run
+    concurrently.
     """
     def __init__(self, a, b):
         self.a = a
         self.b = b
-    async def __call__(self, ev, *args):
-        ret = await self.a(ev, *args)
+    async def __call__(self, ev) -> Optional[Wire]:
+        ret = await self.a(ev)
         if ret is not None:
-            args = ev.start( ret ) # !!! See Error-note on ApplyM !!!
-        else:
-            args = []
-        return self.b, args
+            ev.start( ret )
+        return self.b
 
 class Call(Wire):
     """
     Convenience wire to call a function or coroutine with the given args.
 
-    The return value of the wire created is (None, fix(ret)),
-    where ret = [optionally await] fn(*args, **kwargs),
-    and fix(ret) =
-          ret if ret is a list/tuple
-          [] if ret is None
-          [ret] otherwise
-    This way the return value of the function is always cast to a
-    list of arguments that can be passed to the next Wire in a
-    sequence.
-
-    If there are call arguments "coming from a previous wire",
-    they are ignored.
-
-    If the function returns an awaitable, it will be awaited too.
+    The return value of the wire created is always None.
     """
     def __init__(self, fn, *args, **kwargs):
-        self.fn = fn
+        self._aiowire_fn = fn
         self.args = args
         self.kwargs = kwargs
-    async def __call__(self, ev, *ignored):
-        ret = self.fn(*self.args, **self.kwargs)
+    async def __call__(self, ev) -> Optional[Wire]:
+        ret = self._aiowire_fn(*self.args, **self.kwargs)
         if isawaitable(ret):
             ret = await ret
-        # Ensure that the return value is compatible with
-        # wire's expected (Optional[Callable], List) format.
-        if ret is None:
-            return None
-        if not isinstance(ret, (list,tuple)):
-            ret = [ret]
-        return None, ret
+        return None
 
 class Repeat(Wire):
-    def __init__(self, a, n : int):
+    def __init__(self, a : Wire, n : int):
         self.a = a
         self.n = n
 
-    async def __call__(self, ev, *args):
+    async def __call__(self, ev) -> Optional[Wire]:
         self.n -= 1
-        if self.n >= 0:
-            M = Sequence(self.a, self, repeatArgs=True)
-            return await M(ev, *args)
-        return None, args
-
-class RepeatM(Wire):
-    def __init__(self, a, n : int):
-        self.a = a
-        self.n = n
-
-    async def __call__(self, ev, *args):
-        self.n -= 1
-        if self.n >= 0:
-            M = ApplyM(self.a, self)
-            return await M(ev, *args)
-        return None, args
+        if self.n == 0:
+            return self.a
+        elif self.n > 0:
+            M = Sequence(self.a, self)
+            return await M(ev)
+        return None
 
 class Forever(Wire):
-    def __init__(self, a):
+    def __init__(self, a : Wire):
         self.a = a
-    async def __call__(self, ev, *args):
-        M = Sequence(self.a, self, repeatArgs=True)
-        return await M(ev, *args)
-
-class ForeverM(Wire):
-    def __init__(self, a):
-        self.a = a
-    async def __call__(self, ev, *args):
-        M = ApplyM(self.a, self)
-        return await M(ev, *args)
+    async def __call__(self, ev) -> Optional[Wire]:
+        M = Sequence(self.a, self)
+        return await M(ev)

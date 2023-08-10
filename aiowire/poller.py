@@ -1,9 +1,17 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Union
 
-import zmq
-import zmq.asyncio 
+try:
+    import zmq
+    import zmq.asyncio 
+    Socket = Union[zmq.Socket, int]
+    zmqPOLLIN = zmq.POLLIN
+except ImportError:
+    zmq = None # type: ignore[assignment]
+    Socket = int # type: ignore[misc]
+    zmqPOLLIN = 101
 
 from .wire import Wire
+from .event_loop import EventLoop
 
 class Poller(Wire):
     """
@@ -20,10 +28,10 @@ class Poller(Wire):
     See `the pyzmq docs <https://pyzmq.readthedocs.io/en/latest/api/zmq.html#polling>`_
     for more info.
     """
-    def __init__(self, socks,
-                       default_flags = zmq.POLLIN,
+    def __init__(self, socks : Dict[Socket, Wire],
+                       default_flags = zmqPOLLIN,
                        interval : Optional[int] = 1000):
-        self.socks = {}
+        self.socks : Dict[Socket, Wire] = {}
         self.default_flags = default_flags
         self.interval = interval
         self.done = False
@@ -32,9 +40,9 @@ class Poller(Wire):
         for sock, cb in socks.items():
             self.register(sock, cb)
 
-    def register(self, sock, cb, flags = None):
+    def register(self, sock : Socket, cb : Wire, flags = None) -> None:
         """
-        Add a listener on sock, invoking ``Wire`` cb on activity.
+        Add a listener on sock, invoking cb on activity.
         See pyzmq.Poller.register for more info on sock.
 
         If flags is None, self.default_flags is used.
@@ -46,18 +54,18 @@ class Poller(Wire):
         self.poller.register(sock, flags)
         self.socks[sock] = cb
 
-    def unregister(self, sock):
+    def unregister(self, sock : Socket) -> None:
         self.poller.unregister(sock)
         del self.socks[sock]
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """
         Shutdown only needs to be called if the EventLoop
         is running in non-stop mode.
         """
         self.done = True
     
-    async def __call__(self, ev):
+    async def __call__(self, ev : EventLoop) -> Optional[Wire]:
         # TODO: we could further capture the coroutine
         # here within self, then cancel it
         # during shutdown -- then await would probably throw something.
