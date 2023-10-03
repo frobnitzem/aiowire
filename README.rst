@@ -1,11 +1,12 @@
 aiowire - A simple event loop using asyncio
 ============================================
 
-.. |CI| image:: https://github.com/frobnitzem/aiowire/actions/workflows/python-package.yml/badge.svg
+.. image:: https://github.com/frobnitzem/aiowire/actions/workflows/python-package.yml/badge.svg
    :target: https://github.com/frobnitzem/aiowire/actions
-
-.. |Coverage| image:: https://codecov.io/github/frobnitzem/aiowire/branch/main/graph/badge.svg
+   :alt: CI
+.. image:: https://codecov.io/github/frobnitzem/aiowire/branch/main/graph/badge.svg
    :target: https://app.codecov.io/gh/frobnitzem/aiowire
+   :alt: Coverage
 
 This package implements a ``EventLoop`` class
 that manages concurrent coroutines.
