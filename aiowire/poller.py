@@ -32,7 +32,7 @@ class Poller(Wire):
                        default_flags = zmqPOLLIN,
                        interval : Optional[int] = 1000):
         if zmq is None:
-            raise ImportError("ZMQ not installed.")
+            raise ImportError("pyzmq package not installed.")
         self.socks : Dict[Socket, Wire] = {}
         self.default_flags = default_flags
         self.interval = interval

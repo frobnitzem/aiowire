@@ -23,7 +23,7 @@ try:
     import zmq # type: ignore[import-not-found]
     from zmq.asyncio import Context # type: ignore[import-not-found]
 except ImportError:
-    zmq = None
+    zmq = None # type: ignore[assignment]
 
 control = 'inproc://test_control'
 url     = 'inproc://test_zmq'
