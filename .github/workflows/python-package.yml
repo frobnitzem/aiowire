@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest", "macos-latest"]
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.8", "3.10", "3.12"]
 
     steps:
     - uses: ConorMacBride/install-package@v1
@@ -35,7 +35,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install mypy pytest pytest-asyncio pytest-cov
         pip install --no-binary=:all: pyzmq
-        pip install -e .
+        pip install -e ".[zmq]"
 
     - name: Lint with mypy
       run: |

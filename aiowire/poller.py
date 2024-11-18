@@ -1,8 +1,8 @@
 from typing import Optional, Dict, Union
 
 try:
-    import zmq
-    import zmq.asyncio 
+    import zmq # type: ignore[import-not-found]
+    import zmq.asyncio # type: ignore[import-not-found]
     Socket = Union[zmq.Socket, int]
     zmqPOLLIN = zmq.POLLIN
 except ImportError:
@@ -31,6 +31,8 @@ class Poller(Wire):
     def __init__(self, socks : Dict[Socket, Wire],
                        default_flags = zmqPOLLIN,
                        interval : Optional[int] = 1000):
+        if zmq is None:
+            raise ImportError("pyzmq package not installed.")
         self.socks : Dict[Socket, Wire] = {}
         self.default_flags = default_flags
         self.interval = interval
