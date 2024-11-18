@@ -19,8 +19,11 @@ import pytest
 
 from aiowire import EventLoop, Poller, Call
 
-import zmq
-from zmq.asyncio import Context
+try:
+    import zmq # type: ignore[import-not-found]
+    from zmq.asyncio import Context # type: ignore[import-not-found]
+except ImportError:
+    zmq = None
 
 control = 'inproc://test_control'
 url     = 'inproc://test_zmq'
@@ -107,6 +110,7 @@ class Client:
         self.sock.close()
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(zmq is None, reason="Unable to import zmq")
 async def test_run():
     C = Client(url)
     async with EventLoop(2.0) as ev:

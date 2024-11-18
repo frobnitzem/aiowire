@@ -54,7 +54,10 @@ async def test_Poller():
         #return data
         chrs += len(data)
 
-    poller = Poller( {fd : read} )
+    try:
+        poller = Poller( {fd : read} )
+    except ImportError:
+        return
 
     async def run_cmd(ev):
         await asyncio.sleep(0.01)

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aiowire"
-version = "3.0.1"
+version = "3.1.0"
 description = "A simple event loop using asyncio"
 authors = ["David M. Rogers <predictivestatmech@gmail.com>"]
 readme = "README.rst"
@@ -13,9 +13,11 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=3.8"
+
+[tool.poetry.group.zmq.dependencies]
 pyzmq = ">=23.2.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.devel.dependencies]
 pytest = "^7.0.0"
 pytest-asyncio = "^0.17.2"
 pytest-cov = "^3.0.0"
